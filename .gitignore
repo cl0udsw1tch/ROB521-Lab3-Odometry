@@ -1,7 +1,7 @@
 .vscode/
 build/
 launch/
-rvis/
+rviz/
 urdf/
 CMakeLists.txt
 package.xml
