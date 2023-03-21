@@ -30,8 +30,6 @@ class wheelRadiusEstimator():
         self.isMoving = False #Moving or not moving
         self.lock = threading.Lock()
 
-        self.del_right_encoder_sum = 0
-        self.del_left_encoder_sum = 0
 
         #Reset the robot 
         reset_msg = Empty()
@@ -69,19 +67,20 @@ class wheelRadiusEstimator():
 
     def startStopCallback(self, msg):
         input_velocity_mag = np.linalg.norm(np.array([msg.linear.x, msg.linear.y, msg.linear.z]))
+
         if self.isMoving is False and np.absolute(input_velocity_mag) > 0:
             self.isMoving = True #Set state to moving
             print('Starting Calibration Procedure')
-            self.del_left_encoder_sum += self.del_left_encoder
-            self.del_right_encoder_sum += self.del_right_encoder
+
 
         elif self.isMoving is True and np.isclose(input_velocity_mag, 0):
             self.isMoving = False #Set the state to stopped
 
             # # YOUR CODE HERE!!!
             # Calculate the radius of the wheel based on encoder measurements
-
-            radius = 2 * DRIVEN_DISTANCE / (self.del_right_encoder_sum + self.del_left_encoder_sum)
+            left_encoder = self.left_encoder_prev + self.del_left_encoder
+            right_encoder = self.right_encoder_prev + self.del_right_encoder
+            radius = 2 * DRIVEN_DISTANCE * TICKS_PER_ROTATION/ ((left_encoder + right_encoder))
             print('Calibrated Radius: {} m'.format(radius))
 
             #Reset the robot and calibration routine
