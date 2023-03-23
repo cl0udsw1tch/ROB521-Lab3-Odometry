@@ -116,7 +116,7 @@ class OccupancyGripMap:
                     )
 
 
-            curr_angle += scan_msg.angle_increment
+            curr_angle_R += scan_msg.angle_increment
             increment += 1
 
         # publish the message
