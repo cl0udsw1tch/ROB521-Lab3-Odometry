@@ -167,6 +167,9 @@ class OccupancyGripMap:
         # print(values)
         return np.exp(values) / (1 + np.exp(values))
 
+    def normalize_angle(self, theta):
+        return math.atan2(math.sin(theta),math.cos(theta))
+
 
 if __name__ == '__main__':
     try:
