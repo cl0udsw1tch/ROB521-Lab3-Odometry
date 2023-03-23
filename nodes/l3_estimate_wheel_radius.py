@@ -30,7 +30,6 @@ class wheelRadiusEstimator():
         self.isMoving = False #Moving or not moving
         self.lock = threading.Lock()
 
-
         #Reset the robot 
         reset_msg = Empty()
         self.reset_pub.publish(reset_msg)
@@ -82,6 +81,9 @@ class wheelRadiusEstimator():
             right_encoder = self.right_encoder_prev + self.del_right_encoder
             radius = 2 * DRIVEN_DISTANCE * TICKS_PER_ROTATION/ ((left_encoder + right_encoder))
             print('Calibrated Radius: {} m'.format(radius))
+
+            #END OF CODE
+            ## This is the code I added.
 
             #Reset the robot and calibration routine
             self.lock.acquire()

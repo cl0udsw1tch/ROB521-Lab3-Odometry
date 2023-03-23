@@ -81,13 +81,19 @@ class WheelOdom:
             # Update your odom estimates with the latest encoder measurements and populate the relevant area
             # of self.pose and self.twist with estimated position, heading and velocity
 
-            # self.pose.position.x = xx
-            # self.pose.position.y = xx
-            # self.pose.orientation = xx
+            theta_timestep = self.twist.angular.z * 0.2 # I added those, not part of the initial code 
+            self.pose.position.x =  np.cos(theta_timestep)*WHEEL_RADIUS/2*re*RAD_PER_TICK + np.cos(theta_timestep)*WHEEL_RADIUS/2*le*RAD_PER_TICK
+            self.pose.position.y = np.sin(theta_timestep)*WHEEL_RADIUS/2 *re*RAD_PER_TICK - np.sin(theta_timestep)*WHEEL_RADIUS/2*le*RAD_PER_TICK
+            self.pose.orientation = WHEEL_RADIUS / (2*BASELINE) *re*RAD_PER_TICK + WHEEL_RADIUS/(2*BASELINE) *le*RAD_PER_TICK
 
-            # self.twist.linear.x = mu_dot[0].item()
-            # self.twist.linear.y = mu_dot[1].item()
-            # self.twist.angular.z = mu_dot[2].item()
+            re_angular_vel = re*RAD_PER_TICK  # units rad per 0.2 secs (sampling period)
+            le_angular_vel = le*RAD_PER_TICK  # units rad / 0.2 secs (sampling period)
+
+            self.twist.linear.x = (re_angular_vel - le_angular_vel) * WHEEL_RADIUS * np.cos(self.twist.angular.z)   #mu_dot[0].item()
+            self.twist.linear.y = (re_angular_vel - le_angular_vel)*WHEEL_RADIUS *np.sin(self.twist.angular.z)      #mu_dot[1].item()
+            self.twist.angular.z = (re - le)*RAD_PER_TICK  #divide by 0.2 if units should be in rad/sec # *mu_dot[2].item()
+
+
 
             # publish the updates as a topic and in the tf tree
             current_time = rospy.Time.now()
