@@ -3,9 +3,10 @@ build/
 launch/
 rviz/
 urdf/
+.vs
+rviz
 CMakeLists.txt
 package.xml
 sample_data.bag
 map.png
-.vs
-rviz
+
