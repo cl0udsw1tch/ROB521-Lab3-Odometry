@@ -85,10 +85,11 @@ class OccupancyGripMap:
             rospy.logwarn('Pose from odom lookup failed. Using origin as odom.')
             odom_tf = convert_pose_to_tf(self.map_msg.info.origin)
 
-        # get odom in frame of map
-        odom_map_tf = tf_mat_to_tf(
-            np.linalg.inv(tf_to_tf_mat(convert_pose_to_tf(self.map_msg.info.origin))).dot(tf_to_tf_mat(odom_tf))
-        )
+        # get odom in frame of map 
+        odom_map_tf = tf_mat_to_tf(np.linalg.inv(
+                tf_to_tf_mat(convert_pose_to_tf(self.map_msg.info.origin))).dot(tf_to_tf_mat(odom_tf))
+                )
+
         odom_map = np.zeros(3)
         odom_map[0] = odom_map_tf.translation.x
         odom_map[1] = odom_map_tf.translation.y
@@ -100,18 +101,19 @@ class OccupancyGripMap:
         increment = 0
         for laser_range in scan_msg.ranges:
             
-            curr_angle_R = scan_msg.angle_min + increment * scan_msg.angle_increment
-            if laser_range > scan_msg.range_max or laser_range < scan_msg.range_min:
-                pass
-            else:
-                curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
-                self.ray_trace_update(
-                    self.log_odds, 
-                    odom_map[0], 
-                    odom_map[1],
-                    curr_angle_I,
-                    laser_range
-                    )
+            if not increment % SCAN_DOWNSAMPLE:
+                curr_angle_R = scan_msg.angle_min + increment * scan_msg.angle_increment
+                if laser_range > scan_msg.range_max or laser_range < scan_msg.range_min:
+                    pass
+                else:
+                    curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
+                    self.ray_trace_update(
+                        self.log_odds, 
+                        odom_map[0], 
+                        odom_map[1],
+                        curr_angle_I,
+                        laser_range
+                        )
             increment += 1
             
 
@@ -137,7 +139,7 @@ class OccupancyGripMap:
         # probability of occupancy, and -1 representing unknown.
 
         x_start_pixel = math.ceil(x_start/self.map_msg.info.resolution) - 1
-        y_start_pixel = self.map_msg.info.height - (math.ceil(y_start/self.map_msg.info.resolution) - 1)
+        y_start_pixel = math.ceil(y_start/self.map_msg.info.resolution) - 1
         x_end = x_start + np.cos(angle) * range_mes
         y_end = y_start + np.sin(angle) * range_mes
         x_end_pixel = int(x_end/self.map_msg.info.resolution) - 1
@@ -157,9 +159,6 @@ class OccupancyGripMap:
             except IndexError:
                 return 
  
-        test = np.zeros((400, 400)) - 1
-        rr, cc = ray_trace(0, 0, 399, 399)
-        test[rr, cc] = 50
         self.np_map = (100 * self.log_odds_to_probability(log_odds)).astype(np.uint8)
         return self.np_map, log_odds
 
