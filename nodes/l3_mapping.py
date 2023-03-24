@@ -85,10 +85,11 @@ class OccupancyGripMap:
             rospy.logwarn('Pose from odom lookup failed. Using origin as odom.')
             odom_tf = convert_pose_to_tf(self.map_msg.info.origin)
 
-        # get odom in frame of map
-        odom_map_tf = tf_mat_to_tf(
-            np.linalg.inv(tf_to_tf_mat(convert_pose_to_tf(self.map_msg.info.origin))).dot(tf_to_tf_mat(odom_tf))
-        )
+        # get odom in frame of map 
+        odom_map_tf = tf_mat_to_tf(np.linalg.inv(
+                tf_to_tf_mat(convert_pose_to_tf(self.map_msg.info.origin))).dot(tf_to_tf_mat(odom_tf))
+                )
+
         odom_map = np.zeros(3)
         odom_map[0] = odom_map_tf.translation.x
         odom_map[1] = odom_map_tf.translation.y
@@ -97,34 +98,31 @@ class OccupancyGripMap:
         # YOUR CODE HERE!!! Loop through each measurement in scan_msg to get the correct angle and
         # x_start and y_start to send to your ray_trace_update function.
 
-        curr_angle_R = 0
         increment = 0
-        while curr_angle_R < scan_msg.angle_max:
-
-            curr_range = scan_msg.ranges[increment]
-            if curr_range > scan_msg.range_max or curr_range < scan_msg.range_min:
-                pass
-            else:
-                curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
-                self.ray_trace_update(
-                    self.np_map, 
-                    self.log_odds, 
-                    odom_map[0], 
-                    odom_map[1],
-                    curr_angle_I,
-                    curr_range
-                    )
-
-
-            curr_angle_R += scan_msg.angle_increment
+        for laser_range in scan_msg.ranges:
+            
+            if not increment % SCAN_DOWNSAMPLE:
+                curr_angle_R = scan_msg.angle_min + increment * scan_msg.angle_increment
+                if laser_range > scan_msg.range_max or laser_range < scan_msg.range_min:
+                    pass
+                else:
+                    curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
+                    self.ray_trace_update(
+                        self.log_odds, 
+                        odom_map[0], 
+                        odom_map[1],
+                        curr_angle_I,
+                        laser_range
+                        )
             increment += 1
+            
 
         # publish the message
         self.map_msg.info.map_load_time = rospy.Time.now()
         self.map_msg.data = self.np_map.flatten()
         self.map_pub.publish(self.map_msg)
 
-    def ray_trace_update(self, map, log_odds, x_start, y_start, angle, range_mes):
+    def ray_trace_update(self, log_odds, x_start, y_start, angle, range_mes):
         """
         A ray tracing grid update as described in the lab document.
 
@@ -142,7 +140,6 @@ class OccupancyGripMap:
     
         x_start_pixel = math.ceil(x_start/self.map_msg.info.resolution) - 1
         y_start_pixel = math.ceil(y_start/self.map_msg.info.resolution) - 1
-
         x_end = x_start + np.cos(angle) * range_mes
         y_end = y_start + np.sin(angle) * range_mes
 
@@ -155,17 +152,16 @@ class OccupancyGripMap:
         for point_index in range(len_beam):
             row = rr[point_index]
             column = cc[point_index]
-            try:
+            try: 
                 if point_index < len_beam - NUM_PTS_OBSTACLE:
-                    log_odds[row, column] -= BETA
-                else:
                     log_odds[row, column] += ALPHA
+                else:
+                    log_odds[row, column] -= BETA
             except IndexError:
-                return
-
-        map = (100 * self.log_odds_to_probability(log_odds)).astype(int)
-        #print(map[rr, cc])
-        return map, log_odds
+                return 
+ 
+        self.np_map = (100 * self.log_odds_to_probability(log_odds)).astype(np.uint8)
+        return self.np_map, log_odds
 
     def log_odds_to_probability(self, values) -> np.ndarray:
         # print(values)
