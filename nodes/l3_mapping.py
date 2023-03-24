@@ -97,7 +97,7 @@ class OccupancyGripMap:
         # YOUR CODE HERE!!! Loop through each measurement in scan_msg to get the correct angle and
         # x_start and y_start to send to your ray_trace_update function.
 
-        curr_angle_R = scan_msg.angle_min
+        curr_angle_R = 0
         increment = 0
         while curr_angle_R < scan_msg.angle_max:
 
@@ -105,7 +105,7 @@ class OccupancyGripMap:
             if curr_range > scan_msg.range_max or curr_range < scan_msg.range_min:
                 pass
             else:
-                curr_angle_I = self.normalize_angle(odom_map[2] - curr_angle_R)
+                curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
                 self.ray_trace_update(
                     self.np_map, 
                     self.log_odds, 
@@ -139,28 +139,32 @@ class OccupancyGripMap:
         # YOUR CODE HERE!!! You should modify the log_odds object and the numpy map based on the outputs from
         # ray_trace and the equations from class. Your numpy map must be an array of int8s with 0 to 100 representing
         # probability of occupancy, and -1 representing unknown.
-
+    
         x_start_pixel = math.ceil(x_start/self.map_msg.info.resolution) - 1
-        y_start_pixel = self.map_msg.info.height - (math.ceil(y_start/self.map_msg.info.resolution) - 1)
+        y_start_pixel = math.ceil(y_start/self.map_msg.info.resolution) - 1
 
         x_end = x_start + np.cos(angle) * range_mes
         y_end = y_start + np.sin(angle) * range_mes
-        x_end_pixel = int(x_end/self.map_msg.info.resolution) - 1
-        y_end_pixel = int(y_end/self.map_msg.info.resolution) - 1
 
+        x_end_pixel = int(x_end/self.map_msg.info.resolution) - 1
+        y_end_pixel = (int(y_end/self.map_msg.info.resolution) - 1)
+        print(y_start, y_end, y_start_pixel, y_end_pixel)
         rr, cc = ray_trace(y_start_pixel,x_start_pixel, y_end_pixel, x_end_pixel)
 
         len_beam = len(rr)
         for point_index in range(len_beam):
             row = rr[point_index]
             column = cc[point_index]
-            if point_index < len_beam - NUM_PTS_OBSTACLE:
-                log_odds[row, column] += ALPHA
-            else:
-                log_odds[row, column] -= BETA
+            try:
+                if point_index < len_beam - NUM_PTS_OBSTACLE:
+                    log_odds[row, column] -= BETA
+                else:
+                    log_odds[row, column] += ALPHA
+            except IndexError:
+                return
 
         map = (100 * self.log_odds_to_probability(log_odds)).astype(int)
-
+        #print(map[rr, cc])
         return map, log_odds
 
     def log_odds_to_probability(self, values) -> np.ndarray:
