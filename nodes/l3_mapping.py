@@ -97,34 +97,30 @@ class OccupancyGripMap:
         # YOUR CODE HERE!!! Loop through each measurement in scan_msg to get the correct angle and
         # x_start and y_start to send to your ray_trace_update function.
 
-        curr_angle_R = scan_msg.angle_min
         increment = 0
-        while curr_angle_R < scan_msg.angle_max:
-
-            curr_range = scan_msg.ranges[increment]
-            if curr_range > scan_msg.range_max or curr_range < scan_msg.range_min:
+        for laser_range in scan_msg.ranges:
+            
+            curr_angle_R = scan_msg.angle_min + increment * scan_msg.angle_increment
+            if laser_range > scan_msg.range_max or laser_range < scan_msg.range_min:
                 pass
             else:
-                curr_angle_I = self.normalize_angle(odom_map[2] - curr_angle_R)
+                curr_angle_I = self.normalize_angle(odom_map[2] + curr_angle_R)
                 self.ray_trace_update(
-                    self.np_map, 
                     self.log_odds, 
                     odom_map[0], 
                     odom_map[1],
                     curr_angle_I,
-                    curr_range
+                    laser_range
                     )
-
-
-            curr_angle_R += scan_msg.angle_increment
             increment += 1
+            
 
         # publish the message
         self.map_msg.info.map_load_time = rospy.Time.now()
         self.map_msg.data = self.np_map.flatten()
         self.map_pub.publish(self.map_msg)
 
-    def ray_trace_update(self, map, log_odds, x_start, y_start, angle, range_mes):
+    def ray_trace_update(self, log_odds, x_start, y_start, angle, range_mes):
         """
         A ray tracing grid update as described in the lab document.
 
@@ -142,7 +138,6 @@ class OccupancyGripMap:
 
         x_start_pixel = math.ceil(x_start/self.map_msg.info.resolution) - 1
         y_start_pixel = self.map_msg.info.height - (math.ceil(y_start/self.map_msg.info.resolution) - 1)
-
         x_end = x_start + np.cos(angle) * range_mes
         y_end = y_start + np.sin(angle) * range_mes
         x_end_pixel = int(x_end/self.map_msg.info.resolution) - 1
@@ -154,14 +149,19 @@ class OccupancyGripMap:
         for point_index in range(len_beam):
             row = rr[point_index]
             column = cc[point_index]
-            if point_index < len_beam - NUM_PTS_OBSTACLE:
-                log_odds[row, column] += ALPHA
-            else:
-                log_odds[row, column] -= BETA
-
-        map = (100 * self.log_odds_to_probability(log_odds)).astype(int)
-
-        return map, log_odds
+            try: 
+                if point_index < len_beam - NUM_PTS_OBSTACLE:
+                    log_odds[row, column] += ALPHA
+                else:
+                    log_odds[row, column] -= BETA
+            except IndexError:
+                return 
+ 
+        test = np.zeros((400, 400)) - 1
+        rr, cc = ray_trace(0, 0, 399, 399)
+        test[rr, cc] = 50
+        self.np_map = (100 * self.log_odds_to_probability(log_odds)).astype(np.uint8)
+        return self.np_map, log_odds
 
     def log_odds_to_probability(self, values) -> np.ndarray:
         # print(values)
